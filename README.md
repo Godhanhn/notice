@@ -36,5 +36,14 @@ go build -o notice_web main.go
 ```
 启动后访问 `http://localhost:8083` 即可查看可视化面板，管理需要监控的股票代码（如 600884 杉杉股份等）。
 
+### 3. 使用 Docker Compose 部署 (推荐)
+本项目提供了编写好的 `docker-compose.yml`，可以将爬虫服务和 Web 面板一键启动，无需在本地配置 Python 或 Go 环境。
+
+在项目根目录下，执行以下命令即可一键启动：
+```bash
+docker-compose up -d
+```
+启动后，同样可以通过访问 `http://localhost:8083` 访问 Web 面板。所有数据将被持久化保存在当前目录的 `data/` 文件夹中。
+
 ## 声明
 本系统爬取的全部内容来自分开提供数据的公共接口，如需频繁请求建议配置代理或适当降低轮询频率。
