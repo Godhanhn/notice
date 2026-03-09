@@ -24,6 +24,7 @@
 ```bash
 pip install -r requirements.txt
 python main.py
+
 ```
 *注意：可根据需求修改 `main.py` 中 `WEBHOOK_URL` 的飞书 webhook 地址以接收您自己的群内通知。默认每 10 分钟轮询一次。*
 
