@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .nav-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 10px;
+            font-size: 1.1em;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+            outline: none;
+        }
+        #chart {
+            width: 100%;
+            height: 600px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .loading {
+            text-align: center;
+            color: #7f8c8d;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="nav-link">⬅ 返回公告列表</a>
+        <h1>📈 股价走势与重大公告分析</h1>
+        
+        <div class="controls">
+            <select id="stock-select" onchange="renderChart()">
+                <option value="">加载中...</option>
+            </select>
+        </div>
+
+        <div id="chart"></div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let historyData = {};
+        let noticeData = {};
+
+        async function init() {
+            try {
+                // 同时获取历史K线数据和公告数据
+                const [historyRes, noticeRes] = await Promise.all([
+                    fetch('/api/history'),
+                    fetch('/api/notices')
+                ]);
+
+                historyData = await historyRes.json();
+                noticeData = await noticeRes.json();
+
+                populateSelect();
+            } catch (e) {
+                console.error("加载数据失败", e);
+                document.getElementById('chart').innerHTML = '<div class="loading">数据加载失败，请确认后台是否已获取到历史数据。可能需要等待几分钟。</div>';
+            }
+        }
+
+        function populateSelect() {
+            const select = document.getElementById('stock-select');
+            select.innerHTML = '';
+            
+            const symbols = Object.keys(historyData);
+            if (symbols.length === 0) {
+                select.innerHTML = '<option value="">暂无数据 (后台采集中...)</option>';
+                return;
+            }
+
+            symbols.forEach(symbol => {
+                const option = document.createElement('option');
+                option.value = symbol;
+                option.textContent = `${historyData[symbol].name} (${symbol})`;
+                select.appendChild(option);
+            });
+
+            // 初始化第一个股票图表
+            renderChart();
+        }
+
+        function renderChart() {
+            const symbol = document.getElementById('stock-select').value;
+            if (!symbol || !historyData[symbol]) return;
+
+            if (!chartInstance) {
+                chartInstance = echarts.init(document.getElementById('chart'));
+            }
+
+            const stockInfo = historyData[symbol];
+            const noticesInfo = noticeData[symbol];
+
+            // 整理K线数据 [date, open, close, low, high]
+            const categoryData = [];
+            const values = [];
+            
+            stockInfo.history.forEach(item => {
+                categoryData.push(item.date); // 类似 "2023-10-01"
+                values.push([item.open, item.close, item.low, item.high]);
+            });
+
+            // 整理需要标记的重大公告
+            const markPointData = [];
+            if (noticesInfo && noticesInfo.notices) {
+                noticesInfo.notices.forEach(notice => {
+                    if (notice.important) {
+                        // 提取公告时间的日期部分 "2024-05-12 14:00" -> "2024-05-12"
+                        let noticeDate = notice.time.split(' ')[0];
+                        
+                        // 查找该日期在X轴的索引
+                        let xIndex = categoryData.indexOf(noticeDate);
+                        
+                        // 如果当天没有交易（比如周末发公告），寻找后一个最近的交易日
+                        if (xIndex === -1) {
+                            for (let i = 0; i < categoryData.length; i++) {
+                                if (categoryData[i] > noticeDate) {
+                                    xIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (xIndex !== -1) {
+                            markPointData.push({
+                                name: '重大公告',
+                                coord: [xIndex, values[xIndex][3]], // 标记在当天最高价的位置
+                                value: notice.title,
+                                link: notice.link, // 保存链接供点击使用
+                                noticeDate: noticeDate, // 保存日期供tooltip使用
+                                itemStyle: { color: '#e74c3c' },
+                                label: {
+                                    formatter: '!',
+                                    color: '#fff'
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
+            const option = {
+                title: {
+                    text: `${stockInfo.name} (${symbol}) 日线走势及重大公告`,
+                    left: 0
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    triggerOn: 'mousemove|click',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: ['日线', 'MA5', 'MA10', 'MA20', 'MA30']
+                },
+                grid: {
+                    left: '10%',
+                    right: '10%',
+                    bottom: '15%'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: categoryData,
+                    scale: true,
+                    boundaryGap: false,
+                    axisLine: { onZero: false },
+                    splitLine: { show: false },
+                    splitNumber: 20,
+                    min: 'dataMin',
+                    max: 'dataMax'
+                },
+                yAxis: {
+                    scale: true,
+                    splitArea: {
+                        show: true
+                    }
+                },
+                dataZoom: [
+                    {
+                        type: 'inside',
+                        start: 50,
+                        end: 100
+                    },
+                    {
+                        show: true,
+                        type: 'slider',
+                        top: '90%',
+                        start: 50,
+                        end: 100
+                    }
+                ],
+                series: [
+                    {
+                        name: '日线',
+                        type: 'candlestick',
+                        data: values,
+                        itemStyle: {
+                            color: '#ef232a',
+                            color0: '#14b143',
+                            borderColor: '#ef232a',
+                            borderColor0: '#14b143'
+                        },
+                        markPoint: {
+                            data: markPointData,
+                            symbol: 'pin',
+                            symbolSize: 40,
+                            label: {
+                                show: true
+                            },
+                            tooltip: {
+                                show: true,
+                                trigger: 'item',
+                                formatter: function(params) {
+                                    return `<div style="max-width:300px;white-space:normal;">
+                                        <strong>${params.data.noticeDate}</strong><br/>
+                                        <span style="color:#e74c3c;font-weight:bold;">[重大事项]</span> ${params.data.value}<br/>
+                                        <span style="font-size:0.8em;color:#3498db;margin-top:5px;display:block;">🖱️ 点击标记点查看原文</span>
+                                    </div>`;
+                                }
+                            }
+                        }
+                    },
+                    {
+                        name: 'MA5',
+                        type: 'line',
+                        data: calculateMA(5, values),
+                        smooth: true,
+                        lineStyle: { opacity: 0.5 }
+                    },
+                    {
+                        name: 'MA10',
+                        type: 'line',
+                        data: calculateMA(10, values),
+                        smooth: true,
+                        lineStyle: { opacity: 0.5 }
+                    },
+                    {
+                        name: 'MA20',
+                        type: 'line',
+                        data: calculateMA(20, values),
+                        smooth: true,
+                        lineStyle: { opacity: 0.5 }
+                    }
+                ]
+            };
+
+            chartInstance.setOption(option);
+
+            // 移除旧的事件监听，防止多次绑定
+            chartInstance.off('click');
+            
+            // 绑定单击事件，点击标记点可直接跳转公告原文
+            chartInstance.on('click', function (params) {
+                if (params.componentType === 'markPoint' && params.data && params.data.link) {
+                    window.open(params.data.link, '_blank');
+                }
+            });
+        }
+
+        function calculateMA(dayCount, data) {
+            var result = [];
+            for (var i = 0, len = data.length; i < len; i++) {
+                if (i < dayCount) {
+                    result.push('-');
+                    continue;
+                }
+                var sum = 0;
+                for (var j = 0; j < dayCount; j++) {
+                    sum += data[i - j][1]; // 收盘价
+                }
+                result.push((sum / dayCount).toFixed(2));
+            }
+            return result;
+        }
+
+        window.addEventListener('resize', function() {
+            if (chartInstance) {
+                chartInstance.resize();
+            }
+        });
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>

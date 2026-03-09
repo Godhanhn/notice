@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 1em;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-color: #3498db;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.btn-danger {
+            background-color: #e74c3c;
+        }
+        button.btn-danger:hover {
+            background-color: #c0392b;
+        }
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .stock-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .stock-header {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stock-symbol {
+            font-size: 0.6em;
+            color: #7f8c8d;
+            background: #ecf0f1;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .notice-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+        .notice-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .notice-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .notice-title {
+            display: block;
+            color: #2980b9;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 5px;
+            line-height: 1.4;
+            transition: color 0.2s;
+        }
+        .notice-title:hover {
+            color: #e74c3c;
+            text-decoration: underline;
+        }
+        .notice-time {
+            font-size: 0.85em;
+            color: #95a5a6;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #7f8c8d;
+        }
+        .empty-state {
+            color: #7f8c8d;
+            font-style: italic;
+            text-align: center;
+            padding: 20px 0;
+        }
+        .show-more-btn {
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f1f2f6;
+            color: #34495e;
+            text-align: center;
+            border: 1px solid #dfe4ea;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .show-more-btn:hover {
+            background-color: #dfe4ea;
+            color: #2c3e50;
+        }
+        .badge-important {
+            background-color: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .important-text {
+            color: #c0392b !important;
+            font-weight: bold;
+        }
+        .important-item {
+            background-color: #fff5f5;
+            border-left: 4px solid #e74c3c;
+            padding-left: 8px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 A股精选公司最新公告监控</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <input type="text" id="add-input" placeholder="输入股票名称或代码（如：杉杉股份 或 600884）" style="width: 300px;">
+                <button onclick="addStock()">➕ 添加监控</button>
+            </div>
+            <div class="control-group">
+                <select id="delete-select">
+                    <option value="">-- 选择要删除的股票 --</option>
+                </select>
+                <button class="btn-danger" onclick="deleteStock()">🗑️ 删除监控</button>
+            </div>
+            <div class="control-group">
+                <button style="background-color: #27ae60;" onclick="window.location.href='/chart'">📊 查看K线与公告分析</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">正在加载最新公告数据...</div>
+        <div id="stock-grid" class="stock-grid" style="display: none;">
+            <!-- 数据将通过 JS 渲染在这里 -->
+        </div>
+    </div>
+
+    <script>
+        async function fetchStocks() {
+            try {
+                const response = await fetch('/api/stocks');
+                const stocks = await response.json();
+                
+                const select = document.getElementById('delete-select');
+                select.innerHTML = '<option value="">-- 选择要删除的股票 --</option>';
+                
+                if (stocks && Object.keys(stocks).length > 0) {
+                    for (const [code, name] of Object.entries(stocks)) {
+                        const option = document.createElement('option');
+                        option.value = code;
+                        option.textContent = `${name} (${code})`;
+                        select.appendChild(option);
+                    }
+                }
+            } catch (error) {
+                console.error('获取股票列表失败:', error);
+            }
+        }
+
+        async function addStock() {
+            const input = document.getElementById('add-input');
+            const query = input.value.trim();
+            if (!query) {
+                alert('请输入股票名称或代码');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/stocks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`成功添加: ${result.name} (${result.code})`);
+                    input.value = '';
+                    fetchStocks();
+                    
+                    document.getElementById('loading').style.display = 'block';
+                    document.getElementById('loading').innerText = '正在同步最新公告...';
+                    
+                    // 轮询检查是否有新数据更新，确保最多等待更长一点时间，避免漏刷
+                    let checks = 0;
+                    const checkInterval = setInterval(async () => {
+                        checks++;
+                        await fetchNotices();
+                        // 尝试检查 20 次 (大约 20 秒)
+                        if (checks >= 20 || document.getElementById('stock-grid').innerHTML.includes(result.code)) {
+                            clearInterval(checkInterval);
+                            document.getElementById('loading').style.display = 'none';
+                        }
+                    }, 1000);
+                } else {
+                    alert('添加失败: ' + (result.error || '未知错误'));
+                }
+            } catch (error) {
+                console.error('添加失败:', error);
+                alert('添加失败，网络错误');
+            }
+        }
+
+        async function deleteStock() {
+            const select = document.getElementById('delete-select');
+            const code = select.value;
+            if (!code) {
+                alert('请选择要删除的股票');
+                return;
+            }
+            
+            if (!confirm(`确定要删除此股票的监控吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/stocks/${code}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('删除成功，将在下一个周期生效。');
+                    fetchStocks();
+                    fetchNotices();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                alert('删除失败，网络错误');
+            }
+        }
+
+        async function fetchNotices() {
+            try {
+                const response = await fetch('/api/notices');
+                const data = await response.json();
+                
+                const loadingEl = document.getElementById('loading');
+                const gridEl = document.getElementById('stock-grid');
+                
+                loadingEl.style.display = 'none';
+                gridEl.style.display = 'grid';
+                
+                if (Object.keys(data).length === 0) {
+                    gridEl.innerHTML = '<div style="grid-column: 1/-1; text-align:center;">暂无数据，系统可能仍在收集中...</div>';
+                    return;
+                }
+
+                gridEl.innerHTML = ''; // 清空当前内容
+                
+                // 遍历股票数据
+                for (const [symbol, info] of Object.entries(data)) {
+                    const card = document.createElement('div');
+                    card.className = 'stock-card';
+                    
+                    let noticesHtml = '';
+                    let hiddenHtml = '';
+                    let hasMore = false;
+                    let hiddenImportantCount = 0;
+                    
+                    if (info.notices && info.notices.length > 0) {
+                        info.notices.forEach((notice, index) => {
+                            const badge = notice.important ? '<span class="badge-important">重大事项</span>' : '';
+                            const titleClass = notice.important ? 'notice-title important-text' : 'notice-title';
+                            const itemClass = notice.important ? 'notice-item important-item' : 'notice-item';
+                            const itemHtml = `
+                                <li class="${itemClass}">
+                                    <a href="${notice.link}" target="_blank" class="${titleClass}" title="${notice.title}">${badge}${notice.title}</a>
+                                    <div class="notice-time">🕒 ${notice.time}</div>
+                                </li>
+                            `;
+                            
+                            if (index < 10) {
+                                noticesHtml += itemHtml;
+                            } else {
+                                hiddenHtml += itemHtml;
+                                hasMore = true;
+                                if (notice.important) {
+                                    hiddenImportantCount++;
+                                }
+                            }
+                        });
+                    } else {
+                        noticesHtml = '<div class="empty-state">暂无最新公告</div>';
+                    }
+
+                    const listId = `more-list-${symbol}`;
+                    const btnId = `more-btn-${symbol}`;
+                    
+                    let moreButtonHtml = '';
+                    if (hasMore) {
+                        let btnText = '显示更多 (10条) 🔽';
+                        let btnClass = 'show-more-btn';
+                        let btnStyle = '';
+                        
+                        if (hiddenImportantCount > 0) {
+                            btnText = `⚠️ 还有 ${hiddenImportantCount} 条重大事项，点击查看 🔽`;
+                            btnStyle = 'background-color: #fff5f5; color: #c0392b; border-color: #e74c3c; font-weight: 900;';
+                        }
+                        
+                        moreButtonHtml = `
+                            <ul id="${listId}" class="notice-list" style="display: none;">
+                                ${hiddenHtml}
+                            </ul>
+                            <button id="${btnId}" class="${btnClass}" style="${btnStyle}" onclick="toggleMore('${symbol}', ${hiddenImportantCount})">${btnText}</button>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div class="stock-header">
+                            <span>${info.name}</span>
+                            <span class="stock-symbol">${symbol}</span>
+                        </div>
+                        <ul class="notice-list">
+                            ${noticesHtml}
+                        </ul>
+                        ${moreButtonHtml}
+                    `;
+                    
+                    gridEl.appendChild(card);
+                }
+            } catch (error) {
+                console.error('获取数据失败:', error);
+                document.getElementById('loading').innerText = '获取数据失败，请稍后再试。';
+            }
+        }
+
+        function toggleMore(symbol, hiddenImportantCount) {
+            const list = document.getElementById(`more-list-${symbol}`);
+            const btn = document.getElementById(`more-btn-${symbol}`);
+            if (list.style.display === 'none') {
+                list.style.display = 'block';
+                btn.innerHTML = '收起 🔼';
+                // 展开后恢复默认按钮样式，避免一直红着太抢眼，或者保持红色也可以，这里选择保持一点提示但改回默认色可能更好，或者干脆不改样式只改文字
+                // 保持原样逻辑，只改文字
+            } else {
+                list.style.display = 'none';
+                if (hiddenImportantCount > 0) {
+                     btn.innerHTML = `⚠️ 还有 ${hiddenImportantCount} 条重大事项，点击查看 🔽`;
+                } else {
+                     btn.innerHTML = '显示更多 (10条) 🔽';
+                }
+            }
+        }
+
+        // 页面加载时初始化
+        fetchStocks();
+        fetchNotices();
+        
+        // 每 2 分钟自动刷新一次网页数据
+        setInterval(fetchNotices, 120000);
+        setInterval(fetchStocks, 120000);
+    </script>
+</body>
+</html>
